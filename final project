@@ -1,0 +1,104 @@
+-- Create the database
+CREATE DATABASE data_management;
+
+-- Connect to the database
+\c data_management;
+
+-- Create the Product table
+CREATE TABLE Product (
+    prodid VARCHAR(10),
+    name VARCHAR(25),
+    price DECIMAL
+);
+
+-- Add a check constraint for price
+ALTER TABLE Product ADD CONSTRAINT ck_product_price CHECK (price > 0);
+
+-- Create the Depot table
+CREATE TABLE Depot (
+    depid VARCHAR(10),
+    addr VARCHAR(30),
+    volume DECIMAL
+);
+
+-- Create the Stock table
+CREATE TABLE Stock (
+    prodid VARCHAR(10),
+    depid VARCHAR(10),
+    quantity DECIMAL
+);
+
+-- Insert data into Product table
+INSERT INTO Product VALUES ('P1', 'Tape', 2.5), ('P2', 'TV', 250), ('P3', 'Vcr', 80);
+
+-- Insert data into Depot table
+INSERT INTO Depot VALUES ('d1', 'New York', 9000), ('d2', 'Syracuse', 6000), ('d3', 'New York', 2000);
+
+-- Insert data into Stock table
+INSERT INTO Stock VALUES ('P1', 'd1', 1000), ('P1', 'd2', -100), ('P1', 'd4', 1200),
+                         ('P3', 'd1', 3000), ('P3', 'd4', 2000),
+                         ('P2', 'd4', 1500), ('P2', 'd1', -400), ('P2', 'd2', 2000);
+
+-- Add constraints
+
+-- Product table constraints
+ALTER TABLE Product ADD CONSTRAINT ck_product_price CHECK (price > 0);
+
+-- Depot table constraints
+ALTER TABLE Depot ADD CONSTRAINT ck_depot_volume CHECK (volume > 0);
+
+-- Stock table constraints
+-- Foreign key constraints
+ALTER TABLE Stock ADD CONSTRAINT fk_stock_prodid FOREIGN KEY (prodid) REFERENCES Product (prodid) DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE Stock ADD CONSTRAINT fk_stock_depot FOREIGN KEY (depid) REFERENCES Depot (depid) DEFERRABLE INITIALLY IMMEDIATE;
+-- Check constraint
+ALTER TABLE Stock ADD CONSTRAINT ck_stock_quantity CHECK (quantity >= 0);
+
+-- Transactions with ACID properties
+
+-- Transaction 1: Delete Product P1
+BEGIN;
+SAVEPOINT transaction_1_start;
+ALTER TABLE Stock DROP CONSTRAINT IF EXISTS fk_stock_prodid;
+DELETE FROM Stock WHERE prodid = 'P1';
+DELETE FROM Product WHERE prodid = 'P1';
+ALTER TABLE Stock ADD CONSTRAINT fk_stock_prodid FOREIGN KEY (prodid) REFERENCES Product (prodid) DEFERRABLE INITIALLY IMMEDIATE;
+COMMIT;
+
+-- Transaction 2: Delete Depot d1
+BEGIN;
+SAVEPOINT transaction_2_start;
+ALTER TABLE Stock DROP CONSTRAINT IF EXISTS fk_stock_depot;
+DELETE FROM Stock WHERE depid = 'd1';
+DELETE FROM Depot WHERE depid = 'd1';
+ALTER TABLE Stock ADD CONSTRAINT fk_stock_depot FOREIGN KEY (depid) REFERENCES Depot (depid) DEFERRABLE INITIALLY IMMEDIATE;
+COMMIT;
+
+-- Transaction 3: Update Product P1 to pp1
+BEGIN;
+SAVEPOINT transaction_3_start;
+ALTER TABLE Stock DROP CONSTRAINT IF EXISTS fk_stock_prodid;
+UPDATE Product SET prodid = 'pp1' WHERE prodid = 'P1';
+UPDATE Stock SET prodid = 'pp1' WHERE prodid = 'P1';
+ALTER TABLE Stock ADD CONSTRAINT fk_stock_prodid FOREIGN KEY (prodid) REFERENCES Product (prodid) DEFERRABLE INITIALLY IMMEDIATE;
+COMMIT;
+
+-- Transaction 4: Update Depot d1 to dd1
+BEGIN;
+SAVEPOINT transaction_4_start;
+ALTER TABLE Stock DROP CONSTRAINT IF EXISTS fk_stock_depot;
+UPDATE Depot SET depid = 'dd1' WHERE depid = 'd1';
+UPDATE Stock SET depid = 'dd1' WHERE depid = 'd1';
+ALTER TABLE Stock ADD CONSTRAINT fk_stock_depot FOREIGN KEY (depid) REFERENCES Depot (depid) DEFERRABLE INITIALLY IMMEDIATE;
+COMMIT;
+
+-- Transaction 5: Insert Product P100 and Stock P100, d2
+BEGIN;
+SAVEPOINT transaction_5_start;
+ALTER TABLE Stock DROP CONSTRAINT IF EXISTS fk_stock_prodid;
+ALTER TABLE Stock DROP CONSTRAINT IF EXISTS fk_stock_depot;
+INSERT INTO Product VALUES ('p100', 'cd', 5);
+INSERT INTO Stock VALUES ('p100', 'd2', 50);
+ALTER TABLE Stock ADD CONSTRAINT fk_stock_prodid FOREIGN KEY (prodid) REFERENCES Product (prodid) DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE Stock ADD CONSTRAINT fk_stock_depot FOREIGN KEY (depid) REFERENCES Depot (depid) DEFERRABLE INITIALLY IMMEDIATE;
+COMMIT;
